@@ -28,6 +28,7 @@
 #  define AFALG_F_AFALG_SETUP_ASYNC_EVENT_NOTIFICATION     0
 #  define AFALG_F_AFALG_SET_KEY                            0
 #  define AFALG_F_BIND_AFALG                               0
+# define AFALG_F_AFALG_SET_AAD                             0
 # endif
 
 /*
@@ -45,5 +46,5 @@
 # define AFALG_R_SOCKET_CREATE_FAILED                     109
 # define AFALG_R_SOCKET_OPERATION_FAILED                  104
 # define AFALG_R_SOCKET_SET_KEY_FAILED                    106
-
+# define AFALG_R_SOCKET_SET_AAD_FAILED                    112
 #endif
