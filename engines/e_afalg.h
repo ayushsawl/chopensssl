@@ -119,6 +119,7 @@ struct afalg_aead_ctx_st {
     int iv_gen;
     int iovlen;
     int aad_len;
+    int is_tls;
     int len;
     struct iovec iov[16];
 };
