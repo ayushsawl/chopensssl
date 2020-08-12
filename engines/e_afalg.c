@@ -97,6 +97,7 @@ static int afalg_cipher_cleanup(EVP_CIPHER_CTX *ctx);
 static int afalg_aead_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                            void *ptr);
 static int afalg_chk_platform(void);
+static int chk_gcm_kernel_supp(void);
 static int aes_gcm_nontls_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                     const unsigned char *in, size_t len);
 static int aes_gcm_nontls_encrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
@@ -1649,6 +1650,31 @@ static const EVP_CIPHER *afalg_aes_cipher(int nid)
     return cipher_handle->_hidden;
 }
 
+static int chk_gcm_kernel_supp(void)
+{
+    struct sockaddr_alg sa;
+    int sock;
+    int r;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.salg_family = AF_ALG;
+    OPENSSL_strlcpy((char *) sa.salg_type, "aead", sizeof(sa.salg_type));
+    OPENSSL_strlcpy((char *) sa.salg_name, "gcm(aes)", sizeof(sa.salg_name));
+    sock = socket(AF_ALG, SOCK_SEQPACKET, 0);
+    if (sock == -1) {
+        AFALGerr(AFALG_F_AFALG_CHK_PLATFORM, AFALG_R_SOCKET_CREATE_FAILED);
+        return 0;
+    }
+    r = bind(sock, (struct sockaddr *)&sa, sizeof(sa));
+    if (r < 0) {
+        AFALGerr(AFALG_F_AFALG_CREATE_SK, AFALG_R_SOCKET_BIND_FAILED);
+        return 0;
+    }
+    close(sock);
+
+    return 1;
+}
+
 static int afalg_ciphers(ENGINE *e, const EVP_CIPHER **cipher,
                          const int **nids, int nid)
 {
@@ -1656,7 +1682,10 @@ static int afalg_ciphers(ENGINE *e, const EVP_CIPHER **cipher,
 
     if (cipher == NULL) {
         *nids = afalg_aes_nids;
-        return (sizeof(afalg_aes_nids) / sizeof(afalg_aes_nids[0]));
+        if (chk_gcm_kernel_supp())
+            return (sizeof(afalg_aes_nids) / sizeof(afalg_aes_nids[0]));
+        else
+            return (sizeof(afalg_aes_nids) / sizeof(afalg_aes_nids[0]) - 3);
     }
 
     switch (nid) {
