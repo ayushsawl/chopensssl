@@ -465,6 +465,12 @@ static int afalg_fin_nontlsaead_aio(EVP_CIPHER_CTX *ctx, int sfd,
                             return 0;
                         }
                         continue;
+                    } else if (events[0].res == -EBADMSG && gctx->taglen
+                               && !EVP_CIPHER_CTX_encrypting(ctx)) {
+                        ALG_WARN
+                        ("%s: Crypto Operation failed with code %lld\n",
+                         __func__, events[0].res);
+                        return -EBADMSG;
                     } else {
                         /*
                          * Retries exceed for -EBUSY or unrecoverable error
@@ -1010,44 +1016,23 @@ static int aes_gcm_nontls_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
     gctx = (afalg_aead_ctx *) EVP_CIPHER_CTX_get_cipher_data(ctx);
     actx = (afalg_ctx *)&gctx->ctx;
     if (in == NULL) {
-        /* Return */
-        ret = afalg_start_nontlsaead_sk(ctx, gctx->iov, gctx->iovlen,
-                                        EVP_CIPHER_CTX_iv(ctx), len,
-                                        EVP_CIPHER_CTX_encrypting(ctx));
-        if (ret < 0) {
-            ALG_WARN("Decrypt Send fail\n");
-            return -1;
-        }
-        if (gctx->aad_len) {
-            iov[i].iov_base = malloc(gctx->aad_len);
-            if (!iov[i].iov_base) {
-                ALG_WARN("AAD allocation fail\n");
-                return -1;
-            }
-            iov[i].iov_len = gctx->aad_len;
-            i++;
-        }
-        iov[i].iov_base = out;
-        iov[i].iov_len = gctx->len;
-        i++;
-
-        ret = afalg_fin_nontlsaead_aio(ctx, actx->sfd, iov, i);
-        if (ret < 0) {
-            ALG_WARN("Decrypt Receive fail\n");
-            len = -1;
-        }
+        /*
+         * Case of cipherfinal, Need to send aad, ciphertext and tag as input
+         * again to verify tag present in ctx->buf
+         */
         if (gctx->aad_len)
-            free(iov[0].iov_base);
-        gctx->iv_set = 0;
-        goto end;
+            gctx->iovlen = 3;
+        else
+            gctx->iovlen = 2;
+    } else {
+        gctx->iov[gctx->iovlen].iov_base = (void *)in;
+        gctx->iov[gctx->iovlen].iov_len = len;
+        gctx->iovlen++;
+        gctx->iov[gctx->iovlen].iov_base = EVP_CIPHER_CTX_buf_noconst(ctx);
+        gctx->iov[gctx->iovlen].iov_len = 16;
+        gctx->iovlen++;
+        gctx->len = len;
     }
-    gctx->iov[gctx->iovlen].iov_base = (void *)in;
-    gctx->iov[gctx->iovlen].iov_len = len;
-    gctx->iovlen++;
-    gctx->iov[gctx->iovlen].iov_base = EVP_CIPHER_CTX_buf_noconst(ctx);
-    gctx->iov[gctx->iovlen].iov_len = 16;
-    gctx->iovlen++;
-    gctx->len = len;
     ret = afalg_start_nontlsaead_sk(ctx, gctx->iov, gctx->iovlen,
                                     EVP_CIPHER_CTX_iv(ctx), len,
                                     EVP_CIPHER_CTX_encrypting(ctx));
@@ -1077,9 +1062,9 @@ static int aes_gcm_nontls_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
         free(iov[0].iov_base);
     gctx->iv_set = 1;
 
- end:
     gctx->iovlen = 0;
-    gctx->aad_len = 0;
+    if(in == NULL)
+        gctx->aad_len = 0;
     return len;
 }
 
