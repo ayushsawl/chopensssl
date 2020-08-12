@@ -884,8 +884,8 @@ static int afalg_start_nontlsaead_sk(EVP_CIPHER_CTX *ctx, struct iovec *iov,
      */
 
     /* Input data is not sent as part of call to sendmsg() */
-    msg.msg_iovlen = 1;
-    msg.msg_iov = iov;
+    msg.msg_iovlen = 0;
+    msg.msg_iov = NULL;
 
     /* Sendmsg() sends iv and cipher direction to the kernel */
     sbytes = sendmsg(actx->sfd, &msg, 0);
@@ -899,13 +899,13 @@ static int afalg_start_nontlsaead_sk(EVP_CIPHER_CTX *ctx, struct iovec *iov,
      * vmsplice and splice are used to pin the user space input buffer for
      * kernel space processing avoiding copys from user to kernel space
      */
-    ret = vmsplice(actx->zc_pipe[1], &iov, 1, SPLICE_F_GIFT);
+    ret = vmsplice(actx->zc_pipe[1], iov, iovlen, SPLICE_F_GIFT);
     if (ret < 0) {
         ALG_PERR("%s: vmsplice failed : ", __func__);
         return 0;
     }
 
-    ret = splice(actx->zc_pipe[0], NULL, actx->sfd, NULL, inl, 0);
+    ret = splice(actx->zc_pipe[0], NULL, actx->sfd, NULL, ret, SPLICE_F_MORE);
     if (ret < 0) {
         ALG_PERR("%s: splice failed : ", __func__);
         return 0;
