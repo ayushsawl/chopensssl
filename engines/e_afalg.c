@@ -82,6 +82,7 @@ static int afalg_destroy(ENGINE *e);
 static int afalg_init(ENGINE *e);
 static int afalg_finish(ENGINE *e);
 static const EVP_CIPHER *afalg_aes_cipher(int nid);
+static const EVP_CIPHER *afalg_aes_aead(int nid);
 static aes_handles *get_cipher_handle(int nid);
 static int afalg_ciphers(ENGINE *e, const EVP_CIPHER **cipher,
                          const int **nids, int nid);
@@ -1220,14 +1221,14 @@ static int aes_gcm_nontls_encrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                     EVP_CIPHER_CTX_iv(ctx), len,
                                     EVP_CIPHER_CTX_encrypting(ctx));
     if (ret < 0) {
-        ALG_WARN("Buffer send fail\n");
+        ALG_WARN("%s: Buffer send fail\n",__func__);
         return -1;
     }
     /* Recv output */
     if (gctx->aad_len) {
         iov[i].iov_base = malloc(gctx->aad_len);
         if (iov[i].iov_base) {
-            ALG_WARN("AAD buffer alloc for recv fail\n");
+            ALG_WARN("%s: AAD buffer alloc for recv fail\n",__func__);
 
         }
         iov[i].iov_len = gctx->aad_len;
@@ -1242,7 +1243,7 @@ static int aes_gcm_nontls_encrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     ret = afalg_fin_nontlsaead_aio(ctx, actx->sfd, iov, i);
     if (ret < 0) {
-        ALG_WARN("Buffer read fail\n");
+        ALG_WARN("%s: Buffer read fail\n",__func__);
         ret = -errno;
         goto clear;
     }
@@ -1289,13 +1290,13 @@ static int aes_gcm_nontls_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                     EVP_CIPHER_CTX_iv(ctx), len,
                                     EVP_CIPHER_CTX_encrypting(ctx));
     if (ret < 0) {
-        ALG_WARN("Decrypt Send fail\n");
+        ALG_WARN("%s: Decrypt Send fail\n",__func__);
         return -1;
     }
     if (gctx->aad_len) {
         iov[i].iov_base = malloc(gctx->aad_len);
         if (!iov[i].iov_base) {
-            ALG_WARN("AAD allocation fail\n");
+            ALG_WARN("%s: AAD allocation fail\n",__func__);
             return -1;
         }
         iov[i].iov_len = gctx->aad_len;
@@ -1307,7 +1308,7 @@ static int aes_gcm_nontls_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     ret = afalg_fin_nontlsaead_aio(ctx, actx->sfd, iov, i);
     if (ret < 0) {
-        ALG_WARN("Decrypt Receive fail\n");
+        ALG_WARN("%s: Decrypt Receive fail\n",__func__);
         len = -1;
     }
     if (gctx->aad_len)
@@ -1377,8 +1378,8 @@ static int aes_gcm_nontls_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if (in && !out) {
         /* Input contains AAD. Save in iovec */
         if (gctx->iovlen > 16) {
-            ALG_WARN("Input has more than 16 entries. Which cannot be \
-                  sent in IOV\n");
+            ALG_WARN("%s: Input has more than 16 entries. Which cannot be \
+                  sent in IOV\n",__func__);
             return -1;
         }
         gctx->iov[gctx->iovlen].iov_base = (void *)in;
@@ -1596,7 +1597,7 @@ static aes_handles *get_cipher_handle(int nid)
                        | EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CTRL_INIT \
                        | EVP_CIPH_CUSTOM_COPY)
 
-const EVP_CIPHER *afalg_aes_aead(int nid)
+static const EVP_CIPHER *afalg_aes_aead(int nid)
 {
     aes_handles *aead_handle = get_cipher_handle(nid);
     if (aead_handle->_hidden == NULL
