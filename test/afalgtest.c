@@ -21,10 +21,9 @@
 
 #if defined(OPENSSL_SYS_UNIX)
 #include <unistd.h>
-#endif
-
 #include <sys/socket.h>
 #include <linux/if_alg.h>
+#endif
 
 /* Use a buffer size which is not aligned to block size */
 #define BUFFER_SIZE     17
