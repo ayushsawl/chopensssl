@@ -123,7 +123,7 @@ static void ctr64_inc(unsigned char *counter)
 {
     int n = 8;
     unsigned char c;
-
+    fprintf(stderr,"in func(%s)\n",__func__);
     do {
         --n;
         c = counter[n];
