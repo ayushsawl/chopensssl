@@ -333,7 +333,7 @@ static int afalg_fin_cipher_aio(afalg_aio *aio, int sfd, unsigned char *buf,
      */
     r = io_read(aio->aio_ctx, 1, &cb);
     if (r < 0) {
-        ALG_PWARN("%s(%d): io_read failed : ", __FILE__, __LINE__);
+        ALG_PWARN("%s(%d)%s: io_read failed : ", __FILE__, __LINE__, __func__);
         return 0;
     }
 
